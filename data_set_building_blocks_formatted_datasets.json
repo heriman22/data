@@ -1,0 +1,3529 @@
+[
+  {
+    "Instruction": "Generate the n8n workflow JSON based on the user's request.",
+    "Input": "To create a Telegram chatbot that uses OpenAI's GPT model to respond to both text and voice messages, maintaining conversation context.",
+    "Output": {
+      "id": "HJwTWtzlhK8Q5SOv",
+      "meta": {
+        "instanceId": "fb924c73af8f703905bc09c9ee8076f48c17b596ed05b18c0ff86915ef8a7c4a",
+        "templateCredsSetupCompleted": true
+      },
+      "name": "Telegram AI multi-format chatbot",
+      "tags": [],
+      "nodes": [
+        {
+          "id": "65196267-0d57-4af4-9081-962701478146",
+          "name": "OpenAI Chat Model",
+          "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+          "position": [
+            660,
+            640
+          ],
+          "parameters": {
+            "model": "gpt-4o",
+            "options": {
+              "temperature": 0.7,
+              "frequencyPenalty": 0.2
+            }
+          },
+          "credentials": {
+            "openAiApi": {
+              "id": "rveqdSfp7pCRON1T",
+              "name": "Ted's Tech Talks OpenAi"
+            }
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "fc446ef0-2f15-42e7-a993-7960d76d8876",
+          "name": "Window Buffer Memory",
+          "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+          "position": [
+            800,
+            640
+          ],
+          "parameters": {
+            "sessionKey": "=chat_with_{{ $('Listen for incoming events').first().json.message.chat.id }}",
+            "contextWindowLength": 10
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "51c3cddd-fc21-4fff-b615-ea7080c47947",
+          "name": "Correct errors",
+          "type": "n8n-nodes-base.telegram",
+          "position": [
+            1220,
+            580
+          ],
+          "parameters": {
+            "text": "={{ $('AI Agent').item.json.output.replace(/&/g, \"&amp;\").replace(/>/g, \"&gt;\").replace(/</g, \"&lt;\").replace(/\"/g, \"&quot;\") }}",
+            "chatId": "={{ $('Listen for incoming events').first().json.message.from.id }}",
+            "additionalFields": {
+              "parse_mode": "HTML",
+              "appendAttribution": false
+            }
+          },
+          "credentials": {
+            "telegramApi": {
+              "id": "9dexJXnlVPA6wt8K",
+              "name": "Chat & Sound"
+            }
+          },
+          "typeVersion": 1.1
+        },
+        {
+          "id": "d931b7e1-bc17-431e-ae67-967b6ef79236",
+          "name": "Listen for incoming events",
+          "type": "n8n-nodes-base.telegramTrigger",
+          "position": [
+            -440,
+            480
+          ],
+          "webhookId": "322dce18-f93e-4f86-b9b1-3305519b7834",
+          "parameters": {
+            "updates": [
+              "*"
+            ],
+            "additionalFields": {}
+          },
+          "credentials": {
+            "telegramApi": {
+              "id": "9dexJXnlVPA6wt8K",
+              "name": "Chat & Sound"
+            }
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "b33335ff-5dea-4fff-8f63-fea2b11b8241",
+          "name": "Download voice file",
+          "type": "n8n-nodes-base.telegram",
+          "position": [
+            60,
+            600
+          ],
+          "parameters": {
+            "fileId": "={{$json.message.voice.file_id}}",
+            "resource": "file"
+          },
+          "credentials": {
+            "telegramApi": {
+              "id": "9dexJXnlVPA6wt8K",
+              "name": "Chat & Sound"
+            }
+          },
+          "typeVersion": 1.2
+        },
+        {
+          "id": "2954ced6-ab98-42e6-bf64-237146a433e0",
+          "name": "Combine content and set properties",
+          "type": "n8n-nodes-base.set",
+          "position": [
+            440,
+            460
+          ],
+          "parameters": {
+            "options": {},
+            "assignments": {
+              "assignments": [
+                {
+                  "id": "bccbce0a-7786-49c9-979a-7a285cb69f78",
+                  "name": "CombinedMessage",
+                  "type": "string",
+                  "value": "={{ $json.message && $json.message.text ? $json.message.text : ($json.text ? $json.text : '') }}"
+                },
+                {
+                  "id": "5b1fc9f5-1408-4099-88cc-a23725c9eddb",
+                  "name": "Message Type ",
+                  "type": "string",
+                  "value": "={{ $json?.message?.text && !$json?.text ? \"text query\" : (!$json?.message?.text && $json?.text ? \"voice message\" : \"unknown type message\") }}"
+                },
+                {
+                  "id": "1e9a17fa-ec5d-49dc-9ff6-1f28b57fb02e",
+                  "name": "Source Type",
+                  "type": "string",
+                  "value": "={{ $('Listen for incoming events').item.json.message.forward_origin ? \" forwarded\" : \"\" }}"
+                }
+              ]
+            }
+          },
+          "typeVersion": 3.4
+        },
+        {
+          "id": "e18de374-941f-4c2e-ab6c-6c6f68f2ce12",
+          "name": "Send final reply",
+          "type": "n8n-nodes-base.telegram",
+          "onError": "continueErrorOutput",
+          "position": [
+            1040,
+            460
+          ],
+          "parameters": {
+            "text": "={{ $json.output }} \n\nThank you for your{{ $('Combine content and set properties').item.json['Source Type'] }} {{ $('Combine content and set properties').item.json['Message Type '] }} \ud83e\udd17",
+            "chatId": "={{ $('Listen for incoming events').first().json.message.from.id }}",
+            "additionalFields": {
+              "parse_mode": "HTML",
+              "appendAttribution": false
+            }
+          },
+          "credentials": {
+            "telegramApi": {
+              "id": "9dexJXnlVPA6wt8K",
+              "name": "Chat & Sound"
+            }
+          },
+          "typeVersion": 1.1
+        },
+        {
+          "id": "b47a9583-ce5c-464f-a9e6-153fb42e685f",
+          "name": "Send error message",
+          "type": "n8n-nodes-base.telegram",
+          "position": [
+            60,
+            300
+          ],
+          "parameters": {
+            "text": "=Sorry, {{ $('Listen for incoming events').first().json.message.from.first_name }}! This command is not supported yet. Please send text or voice messages.",
+            "chatId": "={{ $('Listen for incoming events').first().json.message.from.id }}",
+            "additionalFields": {
+              "parse_mode": "Markdown",
+              "appendAttribution": false
+            }
+          },
+          "credentials": {
+            "telegramApi": {
+              "id": "9dexJXnlVPA6wt8K",
+              "name": "Chat & Sound"
+            }
+          },
+          "typeVersion": 1.2
+        },
+        {
+          "id": "0196b49e-90a1-4f2f-8b94-492fced37dbf",
+          "name": "Convert audio to text",
+          "type": "@n8n/n8n-nodes-langchain.openAi",
+          "position": [
+            240,
+            600
+          ],
+          "parameters": {
+            "options": {
+              "language": "",
+              "temperature": 0.7
+            },
+            "resource": "audio",
+            "operation": "transcribe"
+          },
+          "credentials": {
+            "openAiApi": {
+              "id": "rveqdSfp7pCRON1T",
+              "name": "Ted's Tech Talks OpenAi"
+            }
+          },
+          "typeVersion": 1.5
+        },
+        {
+          "id": "66505b83-e0c3-4d9d-8e1a-9b54030e29e7",
+          "name": "Sticky Note",
+          "type": "n8n-nodes-base.stickyNote",
+          "position": [
+            -466.12784869794086,
+            220
+          ],
+          "parameters": {
+            "width": 1035.4478381373049,
+            "height": 547.5630890194532,
+            "content": "## Receive and pre-process messages \n"
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "44087d3f-86c8-407c-8791-645d167165cb",
+          "name": "Sticky Note1",
+          "type": "n8n-nodes-base.stickyNote",
+          "position": [
+            620,
+            220
+          ],
+          "parameters": {
+            "color": 2,
+            "width": 861.262180151035,
+            "height": 550.5748478134515,
+            "content": "## 1. Send incoming message to the AI Agent\n## 2. Deliver agent reply to the user \n"
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "d7e58831-de97-483f-8b8a-583f85397245",
+          "name": "Sticky Note2",
+          "type": "n8n-nodes-base.stickyNote",
+          "position": [
+            20,
+            553.0639243489702
+          ],
+          "parameters": {
+            "color": 6,
+            "width": 367.73614918993235,
+            "height": 194.83713159725437,
+            "content": "## Transcribe audio"
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "89515d80-6efc-40a8-95ce-343d4ff4dbee",
+          "name": "Send Typing action",
+          "type": "n8n-nodes-base.telegram",
+          "position": [
+            -180,
+            300
+          ],
+          "parameters": {
+            "chatId": "={{ $('Listen for incoming events').first().json.message.from.id }}",
+            "operation": "sendChatAction"
+          },
+          "credentials": {
+            "telegramApi": {
+              "id": "9dexJXnlVPA6wt8K",
+              "name": "Chat & Sound"
+            }
+          },
+          "typeVersion": 1.2
+        },
+        {
+          "id": "c925d059-f843-473c-bfd4-3c563d80ca0f",
+          "name": "AI Agent",
+          "type": "@n8n/n8n-nodes-langchain.agent",
+          "position": [
+            680,
+            460
+          ],
+          "parameters": {
+            "text": "={{ $json.CombinedMessage }}",
+            "options": {
+              "humanMessage": "TOOLS\n------\nAssistant can ask the user to use tools to look up information that may be helpful in answering the users original question. The tools the human can use are:\n\n{tools}\n\n{format_instructions}\n\nUSER'S INPUT\n--------------------\nHere is the user's input (remember to respond with a markdown code snippet of a json blob with a single action, and NOTHING else):\n\n{{input}}",
+              "systemMessage": "=You are a helpful AI assistant. You are chatting with the user named `{{ $('Determine content type').item.json.message.from.first_name }}`. You need to address the user by their name. Today is {{ DateTime.fromISO($now).toLocaleString(DateTime.DATETIME_FULL) }}\n\nIn your reply, always send a message in Telegram-supported HTML format. Here are the formatting instructions:\n1. The following tags are currently supported:\n<b>bold</b>, <strong>bold</strong>\n<i>italic</i>, <em>italic</em>\n<u>underline</u>, <ins>underline</ins>\n<s>strikethrough</s>, <strike>strikethrough</strike>, <del>strikethrough</del>\n<span class=\"tg-spoiler\">spoiler</span>, <tg-spoiler>spoiler</tg-spoiler>\n<b>bold <i>italic bold <s>italic bold strikethrough <span class=\"tg-spoiler\">italic bold strikethrough spoiler</span></s> <u>underline italic bold</u></i> bold</b>\n<a href=\"http://www.example.com/\">inline URL</a>\n<code>inline fixed-width code</code>\n<pre>pre-formatted fixed-width code block</pre>\n2. Any code that you send should be wrapped in these tags: <pre><code class=\"language-python\">pre-formatted fixed-width code block written in the Python programming language</code></pre>\nOther programming languages are supported as well.\n3. All <, > and & symbols that are not a part of a tag or an HTML entity must be replaced with the corresponding HTML entities (< with &lt;, > with &gt; and & with &amp;)\n4. If the user sends you a message starting with / sign, it means this is a Telegram bot command. For example, all users send /start command as their first message. Try to figure out what these commands mean and reply accodringly\n"
+            }
+          },
+          "typeVersion": 1.1
+        },
+        {
+          "id": "2c56536d-1a86-4a49-b495-3e877adb308a",
+          "name": "Determine content type",
+          "type": "n8n-nodes-base.switch",
+          "position": [
+            -180,
+            480
+          ],
+          "parameters": {
+            "rules": {
+              "values": [
+                {
+                  "outputKey": "Text",
+                  "conditions": {
+                    "options": {
+                      "version": 2,
+                      "leftValue": "",
+                      "caseSensitive": true,
+                      "typeValidation": "strict"
+                    },
+                    "combinator": "and",
+                    "conditions": [
+                      {
+                        "operator": {
+                          "type": "string",
+                          "operation": "notEmpty",
+                          "singleValue": true
+                        },
+                        "leftValue": "={{ $json.message.text }}",
+                        "rightValue": "/"
+                      }
+                    ]
+                  },
+                  "renameOutput": true
+                },
+                {
+                  "outputKey": "Voice",
+                  "conditions": {
+                    "options": {
+                      "version": 2,
+                      "leftValue": "",
+                      "caseSensitive": true,
+                      "typeValidation": "strict"
+                    },
+                    "combinator": "and",
+                    "conditions": [
+                      {
+                        "id": "dd41bbf0-bee0-450b-9160-b769821a4abc",
+                        "operator": {
+                          "type": "object",
+                          "operation": "exists",
+                          "singleValue": true
+                        },
+                        "leftValue": "={{ $json.message.voice}}",
+                        "rightValue": ""
+                      }
+                    ]
+                  },
+                  "renameOutput": true
+                }
+              ]
+            },
+            "options": {
+              "fallbackOutput": "extra"
+            }
+          },
+          "typeVersion": 3.2
+        }
+      ],
+      "active": false,
+      "pinData": {},
+      "settings": {
+        "executionOrder": "v1"
+      },
+      "versionId": "15ae799b-6868-4519-b579-3f202e4de5b2",
+      "connections": {
+        "AI Agent": {
+          "main": [
+            [
+              {
+                "node": "Send final reply",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Send final reply": {
+          "main": [
+            [],
+            [
+              {
+                "node": "Correct errors",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "OpenAI Chat Model": {
+          "ai_languageModel": [
+            [
+              {
+                "node": "AI Agent",
+                "type": "ai_languageModel",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Download voice file": {
+          "main": [
+            [
+              {
+                "node": "Convert audio to text",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Window Buffer Memory": {
+          "ai_memory": [
+            [
+              {
+                "node": "AI Agent",
+                "type": "ai_memory",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Convert audio to text": {
+          "main": [
+            [
+              {
+                "node": "Combine content and set properties",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Determine content type": {
+          "main": [
+            [
+              {
+                "node": "Combine content and set properties",
+                "type": "main",
+                "index": 0
+              }
+            ],
+            [
+              {
+                "node": "Download voice file",
+                "type": "main",
+                "index": 0
+              }
+            ],
+            [
+              {
+                "node": "Send error message",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Listen for incoming events": {
+          "main": [
+            [
+              {
+                "node": "Determine content type",
+                "type": "main",
+                "index": 0
+              },
+              {
+                "node": "Send Typing action",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Combine content and set properties": {
+          "main": [
+            [
+              {
+                "node": "AI Agent",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        }
+      }
+    },
+    "original_index": 0
+  },
+  {
+    "Instruction": "Generate the n8n workflow JSON based on the user's request.",
+    "Input": "To build a chatbot that uses the DeepSeek API (both chat and reasoning models)  and optionally Ollama for local model access, handling user messages and providing responses.",
+    "Output": {
+      "id": "IyhH1KHtXidKNSIA",
+      "meta": {
+        "instanceId": "31e69f7f4a77bf465b805824e303232f0227212ae922d12133a0f96ffeab4fef"
+      },
+      "name": "\ud83d\udc0bDeepSeek V3 Chat & R1 Reasoning Quick Start",
+      "tags": [],
+      "nodes": [
+        {
+          "id": "54c59cae-fbd0-4f0d-b633-6304e6c66d89",
+          "name": "When chat message received",
+          "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+          "position": [
+            -840,
+            -740
+          ],
+          "webhookId": "b740bd14-1b9e-4b1b-abd2-1ecf1184d53a",
+          "parameters": {
+            "options": {}
+          },
+          "typeVersion": 1.1
+        },
+        {
+          "id": "ef85680e-569f-4e74-a1b4-aae9923a0dcb",
+          "name": "AI Agent",
+          "type": "@n8n/n8n-nodes-langchain.agent",
+          "onError": "continueErrorOutput",
+          "position": [
+            -320,
+            40
+          ],
+          "parameters": {
+            "agent": "conversationalAgent",
+            "options": {
+              "systemMessage": "You are a helpful assistant."
+            }
+          },
+          "retryOnFail": true,
+          "typeVersion": 1.7,
+          "alwaysOutputData": true
+        },
+        {
+          "id": "07a8c74c-768e-4b38-854f-251f2fe5b7bf",
+          "name": "DeepSeek",
+          "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+          "position": [
+            -360,
+            220
+          ],
+          "parameters": {
+            "model": "=deepseek-reasoner",
+            "options": {}
+          },
+          "credentials": {
+            "openAiApi": {
+              "id": "MSl7SdcvZe0SqCYI",
+              "name": "deepseek"
+            }
+          },
+          "typeVersion": 1.1
+        },
+        {
+          "id": "a6d58a8c-2d16-4c91-adde-acac98868150",
+          "name": "Window Buffer Memory",
+          "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+          "position": [
+            -220,
+            220
+          ],
+          "parameters": {},
+          "typeVersion": 1.3
+        },
+        {
+          "id": "401a5932-9f3e-4b17-a531-3a19a6a7788a",
+          "name": "Basic LLM Chain2",
+          "type": "@n8n/n8n-nodes-langchain.chainLlm",
+          "position": [
+            -320,
+            -800
+          ],
+          "parameters": {
+            "messages": {
+              "messageValues": [
+                {
+                  "message": "You are a helpful assistant."
+                }
+              ]
+            }
+          },
+          "typeVersion": 1.5
+        },
+        {
+          "id": "215dda87-faf7-4206-bbc3-b6a6b1eb98de",
+          "name": "Sticky Note",
+          "type": "n8n-nodes-base.stickyNote",
+          "position": [
+            -440,
+            -460
+          ],
+          "parameters": {
+            "color": 5,
+            "width": 420,
+            "height": 340,
+            "content": "## DeepSeek using HTTP Request\n### DeepSeek Reasoner R1\nhttps://api-docs.deepseek.com/\nRaw Body"
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "6457c0f7-ad02-4ad3-a4a0-9a7a6e8f0f7f",
+          "name": "Sticky Note1",
+          "type": "n8n-nodes-base.stickyNote",
+          "position": [
+            -440,
+            -900
+          ],
+          "parameters": {
+            "color": 4,
+            "width": 580,
+            "height": 400,
+            "content": "## DeepSeek with Ollama Local Model"
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "2ac8b41f-b27d-4074-abcc-430a8f5928e8",
+          "name": "Ollama DeepSeek",
+          "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+          "position": [
+            -320,
+            -640
+          ],
+          "parameters": {
+            "model": "deepseek-r1:14b",
+            "options": {
+              "format": "default",
+              "numCtx": 16384,
+              "temperature": 0.6
+            }
+          },
+          "credentials": {
+            "ollamaApi": {
+              "id": "7aPaLgwpfdMWFYm9",
+              "name": "Ollama account 127.0.0.1"
+            }
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "37a94fc0-eff3-4226-8633-fb170e5dcff2",
+          "name": "Sticky Note2",
+          "type": "n8n-nodes-base.stickyNote",
+          "position": [
+            -440,
+            -80
+          ],
+          "parameters": {
+            "color": 3,
+            "width": 600,
+            "height": 460,
+            "content": "## DeepSeek Conversational Agent w/Memory\n"
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "52b484bb-1693-4188-ba55-643c40f10dfc",
+          "name": "Sticky Note3",
+          "type": "n8n-nodes-base.stickyNote",
+          "position": [
+            20,
+            -460
+          ],
+          "parameters": {
+            "color": 6,
+            "width": 420,
+            "height": 340,
+            "content": "## DeepSeek using HTTP Request\n### DeepSeek Chat V3\nhttps://api-docs.deepseek.com/\nJSON Body"
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "ec46acef-60f6-4d34-b636-3654125f5897",
+          "name": "DeepSeek JSON Body",
+          "type": "n8n-nodes-base.httpRequest",
+          "position": [
+            160,
+            -320
+          ],
+          "parameters": {
+            "url": "https://api.deepseek.com/chat/completions",
+            "method": "POST",
+            "options": {},
+            "jsonBody": "={\n  \"model\": \"deepseek-chat\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"{{ $json.chatInput }}\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Hello!\"\n    }\n  ],\n  \"stream\": false\n}",
+            "sendBody": true,
+            "specifyBody": "json",
+            "authentication": "genericCredentialType",
+            "genericAuthType": "httpHeaderAuth"
+          },
+          "credentials": {
+            "httpHeaderAuth": {
+              "id": "9CsntxjSlce6yWbN",
+              "name": "deepseek"
+            }
+          },
+          "typeVersion": 4.2
+        },
+        {
+          "id": "e5295120-57f9-4e02-8b73-f00e4d6baa48",
+          "name": "DeepSeek Raw Body",
+          "type": "n8n-nodes-base.httpRequest",
+          "position": [
+            -300,
+            -320
+          ],
+          "parameters": {
+            "url": "https://api.deepseek.com/chat/completions",
+            "body": "={\n        \"model\": \"deepseek-reasoner\",\n        \"messages\": [\n          {\"role\": \"user\", \"content\": \"{{ $json.chatInput.trim() }}\"}\n        ],\n        \"stream\": false\n      }",
+            "method": "POST",
+            "options": {},
+            "sendBody": true,
+            "contentType": "raw",
+            "authentication": "genericCredentialType",
+            "rawContentType": "application/json",
+            "genericAuthType": "httpHeaderAuth"
+          },
+          "credentials": {
+            "httpHeaderAuth": {
+              "id": "9CsntxjSlce6yWbN",
+              "name": "deepseek"
+            }
+          },
+          "typeVersion": 4.2
+        },
+        {
+          "id": "571dc713-ce54-4330-8bdd-94e057ecd223",
+          "name": "Sticky Note4",
+          "type": "n8n-nodes-base.stickyNote",
+          "position": [
+            -1060,
+            -460
+          ],
+          "parameters": {
+            "color": 7,
+            "width": 580,
+            "height": 840,
+            "content": "# Your First DeepSeek API Call\n\nThe DeepSeek API uses an API format compatible with OpenAI. By modifying the configuration, you can use the OpenAI SDK or softwares compatible with the OpenAI API to access the DeepSeek API.\n\nhttps://api-docs.deepseek.com/\n\n## Configuration Parameters\n\n| Parameter | Value |\n|-----------|--------|\n| base_url | https://api.deepseek.com |\n| api_key | https://platform.deepseek.com/api_keys |\n\n\n\n## Important Notes\n\n- To be compatible with OpenAI, you can also use `https://api.deepseek.com/v1` as the base_url. Note that the v1 here has NO relationship with the model's version.\n\n- The deepseek-chat model has been upgraded to DeepSeek-V3. The API remains unchanged. You can invoke DeepSeek-V3 by specifying `model='deepseek-chat'`.\n\n- deepseek-reasoner is the latest reasoning model, DeepSeek-R1, released by DeepSeek. You can invoke DeepSeek-R1 by specifying `model='deepseek-reasoner'`."
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "f0ac3f32-218e-4488-b67f-7b7f7e8be130",
+          "name": "Sticky Note5",
+          "type": "n8n-nodes-base.stickyNote",
+          "position": [
+            -1060,
+            -900
+          ],
+          "parameters": {
+            "color": 2,
+            "width": 580,
+            "height": 400,
+            "content": "## Four Examples for Connecting to DeepSeek\nhttps://api-docs.deepseek.com/\nhttps://platform.deepseek.com/api_keys"
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "91642d68-ab5d-4f61-abaf-8cb7cb991c29",
+          "name": "Sticky Note6",
+          "type": "n8n-nodes-base.stickyNote",
+          "position": [
+            -180,
+            -640
+          ],
+          "parameters": {
+            "color": 7,
+            "width": 300,
+            "height": 120,
+            "content": "### Ollama Local\nhttps://ollama.com/\nhttps://ollama.com/library/deepseek-r1"
+          },
+          "typeVersion": 1
+        }
+      ],
+      "active": false,
+      "pinData": {
+        "When chat message received": [
+          {
+            "json": {
+              "action": "sendMessage",
+              "chatInput": "provide 10 sentences that end in the word apple.",
+              "sessionId": "68cb82d504c14f5eb80bdf2478bd39bb"
+            }
+          }
+        ]
+      },
+      "settings": {
+        "executionOrder": "v1"
+      },
+      "versionId": "e354040e-7898-4ff9-91a2-b6d36030dac8",
+      "connections": {
+        "AI Agent": {
+          "main": [
+            []
+          ]
+        },
+        "DeepSeek": {
+          "ai_languageModel": [
+            [
+              {
+                "node": "AI Agent",
+                "type": "ai_languageModel",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Ollama DeepSeek": {
+          "ai_languageModel": [
+            [
+              {
+                "node": "Basic LLM Chain2",
+                "type": "ai_languageModel",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Window Buffer Memory": {
+          "ai_memory": [
+            [
+              {
+                "node": "AI Agent",
+                "type": "ai_memory",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "When chat message received": {
+          "main": [
+            [
+              {
+                "node": "Basic LLM Chain2",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        }
+      }
+    },
+    "original_index": 1
+  },
+  {
+    "Instruction": "Generate the n8n workflow JSON based on the user's request.",
+    "Input": "To transform and upload customer data into a Google Sheet.",
+    "Output": {
+      "nodes": [
+        {
+          "name": "On clicking 'execute'",
+          "type": "n8n-nodes-base.manualTrigger",
+          "position": [
+            1160,
+            480
+          ],
+          "parameters": {},
+          "typeVersion": 1
+        },
+        {
+          "name": "Note",
+          "type": "n8n-nodes-base.stickyNote",
+          "position": [
+            800,
+            420
+          ],
+          "parameters": {
+            "width": 320,
+            "height": 200,
+            "content": "### Very often your data is not in the right format to insert in a node. you can use the set node to fix it.\n\n### Click the `Execute Workflow` button and double click on the nodes to see the input and output items."
+          },
+          "typeVersion": 1
+        },
+        {
+          "name": "Create or Update record in Google Sheet",
+          "type": "n8n-nodes-base.googleSheets",
+          "position": [
+            1920,
+            480
+          ],
+          "parameters": {
+            "range": "A:C",
+            "options": {},
+            "sheetId": "13_bAEYNTzVXVY6SfAkBa9ijtJGSxPd8D-hcXXwXtdDo",
+            "operation": "upsert",
+            "authentication": "oAuth2"
+          },
+          "credentials": {
+            "googleSheetsOAuth2Api": {
+              "id": "8",
+              "name": "Sheets"
+            }
+          },
+          "typeVersion": 1
+        },
+        {
+          "name": "Note1",
+          "type": "n8n-nodes-base.stickyNote",
+          "position": [
+            1480,
+            360
+          ],
+          "parameters": {
+            "width": 400,
+            "height": 280,
+            "content": "\nThis is where we put the data in the format that Google Sheets expect. \nThis means changing the field name from `name` to `Full name`, dropping all fields except `ID`, `Email` and adding a `Created time` field"
+          },
+          "typeVersion": 1
+        },
+        {
+          "name": "Set - Prepare fields",
+          "type": "n8n-nodes-base.set",
+          "notes": "Prepare fields",
+          "position": [
+            1620,
+            480
+          ],
+          "parameters": {
+            "values": {
+              "number": [
+                {
+                  "name": "ID",
+                  "value": "={{$json[\"id\"]}}"
+                }
+              ],
+              "string": [
+                {
+                  "name": "Full name",
+                  "value": "={{$json[\"name\"]}}"
+                },
+                {
+                  "name": "Email",
+                  "value": "={{$json[\"email\"]}}"
+                },
+                {
+                  "name": "Created time",
+                  "value": "={{$now}}"
+                }
+              ]
+            },
+            "options": {},
+            "keepOnlySet": true
+          },
+          "notesInFlow": false,
+          "typeVersion": 1
+        },
+        {
+          "name": "Customer Datastore - Generate some data",
+          "type": "n8n-nodes-base.n8nTrainingCustomerDatastore",
+          "position": [
+            1340,
+            480
+          ],
+          "parameters": {
+            "operation": "getAllPeople"
+          },
+          "typeVersion": 1
+        }
+      ],
+      "connections": {
+        "Set - Prepare fields": {
+          "main": [
+            [
+              {
+                "node": "Create or Update record in Google Sheet",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "On clicking 'execute'": {
+          "main": [
+            [
+              {
+                "node": "Customer Datastore - Generate some data",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Customer Datastore - Generate some data": {
+          "main": [
+            [
+              {
+                "node": "Set - Prepare fields",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        }
+      }
+    },
+    "original_index": 2
+  },
+  {
+    "Instruction": "Generate the n8n workflow JSON based on the user's request.",
+    "Input": "Receive data via webhook, process it into a spreadsheet, and send the spreadsheet back as a file download.",
+    "Output": {
+      "nodes": [
+        {
+          "name": "Webhook",
+          "type": "n8n-nodes-base.webhook",
+          "position": [
+            340,
+            0
+          ],
+          "webhookId": "c1616754-4dec-4b00-a8b5-d1cb5f75bf11",
+          "parameters": {
+            "path": "c1616754-4dec-4b00-a8b5-d1cb5f75bf11",
+            "options": {},
+            "httpMethod": "POST",
+            "responseMode": "responseNode"
+          },
+          "typeVersion": 1
+        },
+        {
+          "name": "Item Lists",
+          "type": "n8n-nodes-base.itemLists",
+          "position": [
+            560,
+            0
+          ],
+          "parameters": {
+            "options": {},
+            "fieldToSplitOut": "=body"
+          },
+          "typeVersion": 1
+        },
+        {
+          "name": "Spreadsheet File",
+          "type": "n8n-nodes-base.spreadsheetFile",
+          "position": [
+            780,
+            0
+          ],
+          "parameters": {
+            "options": {},
+            "operation": "toFile",
+            "fileFormat": "xlsx"
+          },
+          "typeVersion": 1
+        },
+        {
+          "name": "Respond to Webhook",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "position": [
+            1020,
+            0
+          ],
+          "parameters": {
+            "options": {
+              "responseHeaders": {
+                "entries": [
+                  {
+                    "name": "content-disposition",
+                    "value": "=attachment; filename=\"{{$node[\"Webhook\"].json[\"query\"][\"filename\"]? $node[\"Webhook\"].json[\"query\"][\"filename\"] : \"Export\"}}.xlsx\""
+                  }
+                ]
+              }
+            },
+            "respondWith": "binary"
+          },
+          "typeVersion": 1
+        }
+      ],
+      "connections": {
+        "Webhook": {
+          "main": [
+            [
+              {
+                "node": "Item Lists",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Item Lists": {
+          "main": [
+            [
+              {
+                "node": "Spreadsheet File",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Spreadsheet File": {
+          "main": [
+            [
+              {
+                "node": "Respond to Webhook",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        }
+      }
+    },
+    "original_index": 3
+  },
+  {
+    "Instruction": "Generate the n8n workflow JSON based on the user's request.",
+    "Input": "The workflow scrapes SWIFT codes from a website, processes the data, and stores it in a MongoDB database.",
+    "Output": {
+      "id": "14",
+      "name": "extract_swifts",
+      "nodes": [
+        {
+          "name": "On clicking 'execute'",
+          "type": "n8n-nodes-base.manualTrigger",
+          "position": [
+            -140,
+            820
+          ],
+          "parameters": {},
+          "typeVersion": 1
+        },
+        {
+          "name": "HTTP Request",
+          "type": "n8n-nodes-base.httpRequest",
+          "position": [
+            320,
+            820
+          ],
+          "parameters": {
+            "url": "https://www.theswiftcodes.com/browse-by-country/",
+            "options": {},
+            "responseFormat": "string"
+          },
+          "typeVersion": 1
+        },
+        {
+          "name": "HTML Extract",
+          "type": "n8n-nodes-base.htmlExtract",
+          "position": [
+            510,
+            820
+          ],
+          "parameters": {
+            "options": {},
+            "extractionValues": {
+              "values": [
+                {
+                  "key": "countries",
+                  "attribute": "href",
+                  "cssSelector": "ol > li > a",
+                  "returnArray": true,
+                  "returnValue": "attribute"
+                }
+              ]
+            }
+          },
+          "typeVersion": 1
+        },
+        {
+          "name": "SplitInBatches",
+          "type": "n8n-nodes-base.splitInBatches",
+          "position": [
+            910,
+            820
+          ],
+          "parameters": {
+            "options": {
+              "reset": false
+            },
+            "batchSize": 1
+          },
+          "typeVersion": 1
+        },
+        {
+          "name": "HTTP Request1",
+          "type": "n8n-nodes-base.httpRequest",
+          "position": [
+            2250,
+            740
+          ],
+          "parameters": {
+            "url": "={{$node[\"Set\"].json[\"url\"]}}",
+            "options": {},
+            "responseFormat": "file"
+          },
+          "typeVersion": 1
+        },
+        {
+          "name": "HTML Extract1",
+          "type": "n8n-nodes-base.htmlExtract",
+          "position": [
+            2750,
+            590
+          ],
+          "parameters": {
+            "options": {},
+            "sourceData": "binary",
+            "extractionValues": {
+              "values": [
+                {
+                  "key": "next_button",
+                  "attribute": "href",
+                  "cssSelector": "span.next > a",
+                  "returnValue": "attribute"
+                },
+                {
+                  "key": "names",
+                  "cssSelector": "td.table-name",
+                  "returnArray": true
+                },
+                {
+                  "key": "swifts",
+                  "cssSelector": "td.table-swift",
+                  "returnArray": true
+                },
+                {
+                  "key": "cities",
+                  "cssSelector": "td.table-city",
+                  "returnArray": true
+                },
+                {
+                  "key": "branches",
+                  "cssSelector": "td.table-branch",
+                  "returnArray": true
+                }
+              ]
+            }
+          },
+          "typeVersion": 1
+        },
+        {
+          "name": "MongoDB1",
+          "type": "n8n-nodes-base.mongoDb",
+          "position": [
+            3280,
+            590
+          ],
+          "parameters": {
+            "fields": "iso_code,country,page,name,branch,city,swift_code,createdAt,updatedAt",
+            "options": {
+              "dateFields": "createdAt,updatedAt"
+            },
+            "operation": "insert",
+            "collection": "swifts.meetup"
+          },
+          "credentials": {
+            "mongoDb": "db-mongo"
+          },
+          "typeVersion": 1
+        },
+        {
+          "name": "uProc",
+          "type": "n8n-nodes-base.uproc",
+          "position": [
+            1100,
+            820
+          ],
+          "parameters": {
+            "tool": "getCountryNormalized",
+            "group": "geographic",
+            "country": "={{$node[\"SplitInBatches\"].json[\"country\"].replace(/[\\/0-9]/g, \"\")}}",
+            "additionalOptions": {}
+          },
+          "credentials": {
+            "uprocApi": "uproc-miquel"
+          },
+          "typeVersion": 1
+        },
+        {
+          "name": "Prepare Documents",
+          "type": "n8n-nodes-base.function",
+          "position": [
+            2930,
+            590
+          ],
+          "parameters": {
+            "functionCode": "var newItems = [];\n\nfor (i = 0; i < items[0].json.swifts.length; i++) {\n  var item = {\n    iso_code: $node['uProc'].json.message.code,\n    country: $node['SplitInBatches'].json.country.replace(/[-\\/0-9]/g, \"\"),\n    page: $node['Set Page to Scrape'].json.page,\n    name: items[0].json.names[i],\n    city: items[0].json.cities[i],\n    branch: items[0].json.branches[i],\n    swift_code: items[0].json.swifts[i],\n    createdAt: new Date(),\n    updatedAt: new Date()\n  }\n  newItems.push({json: item});\n}\n\nreturn newItems;\n\n"
+          },
+          "typeVersion": 1
+        },
+        {
+          "name": "More Countries",
+          "type": "n8n-nodes-base.if",
+          "position": [
+            2810,
+            1100
+          ],
+          "parameters": {
+            "conditions": {
+              "string": [
+                {
+                  "value1": "={{$node[\"SplitInBatches\"].context[\"noItemsLeft\"] + \"\"}}",
+                  "value2": "true"
+                }
+              ]
+            }
+          },
+          "typeVersion": 1
+        },
+        {
+          "name": "Set Page to Scrape",
+          "type": "n8n-nodes-base.functionItem",
+          "position": [
+            1290,
+            680
+          ],
+          "parameters": {
+            "functionCode": "const staticData = getWorkflowStaticData('global');\n\nitem.page = \"\";\nif (staticData.page && staticData.page.length) {\n  item.page = staticData.page;\n} else {\n  item.page = $node['SplitInBatches'].json.country;\n}\nreturn item;\n"
+          },
+          "typeVersion": 1
+        },
+        {
+          "name": "More Pages",
+          "type": "n8n-nodes-base.if",
+          "position": [
+            3070,
+            1020
+          ],
+          "parameters": {
+            "conditions": {
+              "string": [
+                {
+                  "value1": "={{$json[\"more_pages\"] + \"\"}}",
+                  "value2": "true"
+                }
+              ]
+            }
+          },
+          "typeVersion": 1
+        },
+        {
+          "name": "Set More Pages",
+          "type": "n8n-nodes-base.function",
+          "position": [
+            3470,
+            590
+          ],
+          "parameters": {
+            "functionCode": "var next_page = $node['HTML Extract1'].json.next_button && $node['HTML Extract1'].json.next_button.length ? $node['HTML Extract1'].json.next_button : \"\";\nvar more_pages = next_page.length > 0;\nconst staticData = getWorkflowStaticData('global');\n\n//all current items are after date: needs pagination\nif (more_pages) {\n  staticData.page = next_page;\n} else {\n  //don't check more items in previous pages;\n  delete staticData.page;\n}\n\nreturn [\n  {\n    json: {\n      more_pages: more_pages\n    }\n  }\n];\n"
+          },
+          "typeVersion": 1
+        },
+        {
+          "name": "Set",
+          "type": "n8n-nodes-base.set",
+          "position": [
+            1440,
+            680
+          ],
+          "parameters": {
+            "values": {
+              "string": [
+                {
+                  "name": "url",
+                  "value": "=https://www.theswiftcodes.com{{$node[\"Set Page to Scrape\"].json[\"page\"]}}"
+                }
+              ]
+            },
+            "options": {}
+          },
+          "typeVersion": 1
+        },
+        {
+          "name": "Generate filename",
+          "type": "n8n-nodes-base.functionItem",
+          "position": [
+            1600,
+            610
+          ],
+          "parameters": {
+            "functionCode": "var generateNameFromUrl = function(url){\n    return url.replace(/[^a-z0-9]/gi, \"_\");\n}\n\nitem.file = generateNameFromUrl(item.url) + \".html\"\nreturn item;"
+          },
+          "typeVersion": 1
+        },
+        {
+          "name": "Read Binary File",
+          "type": "n8n-nodes-base.readBinaryFile",
+          "position": [
+            1770,
+            610
+          ],
+          "parameters": {
+            "filePath": "=/home/node/.cache/scrapper/{{$json[\"file\"]}}"
+          },
+          "typeVersion": 1,
+          "continueOnFail": true,
+          "alwaysOutputData": true
+        },
+        {
+          "name": "File exists?",
+          "type": "n8n-nodes-base.if",
+          "position": [
+            1950,
+            610
+          ],
+          "parameters": {
+            "conditions": {
+              "string": [
+                {
+                  "value1": "={{$node[\"Read Binary File\"].binary.data.mimeType}}",
+                  "value2": "text/html"
+                }
+              ]
+            }
+          },
+          "typeVersion": 1
+        },
+        {
+          "name": "Write Binary File",
+          "type": "n8n-nodes-base.writeBinaryFile",
+          "position": [
+            2400,
+            740
+          ],
+          "parameters": {
+            "fileName": "=/home/node/.cache/scrapper/{{$node[\"Generate filename\"].json[\"file\"]}}",
+            "dataPropertyName": "=data"
+          },
+          "typeVersion": 1
+        },
+        {
+          "name": "Read Binary File1",
+          "type": "n8n-nodes-base.readBinaryFile",
+          "position": [
+            2570,
+            590
+          ],
+          "parameters": {
+            "filePath": "=/home/node/.cache/scrapper/{{$json[\"file\"]}}"
+          },
+          "typeVersion": 1,
+          "continueOnFail": true,
+          "alwaysOutputData": true
+        },
+        {
+          "name": "Wait",
+          "type": "n8n-nodes-base.function",
+          "position": [
+            2090,
+            740
+          ],
+          "parameters": {
+            "functionCode": "const waitTimeSeconds = 1;\n\nreturn new Promise((resolve) => {\n  setTimeout(() => {\n    resolve([]);\n  }, waitTimeSeconds * 1000);\n});\n"
+          },
+          "typeVersion": 1,
+          "continueOnFail": true,
+          "alwaysOutputData": true
+        },
+        {
+          "name": "Prepare countries",
+          "type": "n8n-nodes-base.function",
+          "position": [
+            700,
+            820
+          ],
+          "parameters": {
+            "functionCode": "return items[0].json.countries.map(function(country) {\n  return {\n  json: {country: country}\n  }\n});"
+          },
+          "typeVersion": 1
+        },
+        {
+          "name": "Create Directory",
+          "type": "n8n-nodes-base.executeCommand",
+          "position": [
+            70,
+            820
+          ],
+          "parameters": {
+            "command": "mkdir -p  /home/node/.cache/scrapper/"
+          },
+          "typeVersion": 1,
+          "continueOnFail": true
+        },
+        {
+          "name": "MongoDB",
+          "type": "n8n-nodes-base.mongoDb",
+          "disabled": true,
+          "position": [
+            3100,
+            520
+          ],
+          "parameters": {
+            "query": "={\"swift_code\": \"{{$json[\"swift_code\"]}}\"}",
+            "options": {},
+            "collection": "swifts.meetup"
+          },
+          "credentials": {
+            "mongoDb": "db-mongo"
+          },
+          "executeOnce": false,
+          "typeVersion": 1,
+          "alwaysOutputData": true
+        }
+      ],
+      "active": false,
+      "settings": {},
+      "connections": {
+        "Set": {
+          "main": [
+            [
+              {
+                "node": "Generate filename",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Wait": {
+          "main": [
+            [
+              {
+                "node": "HTTP Request1",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "uProc": {
+          "main": [
+            [
+              {
+                "node": "Set Page to Scrape",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "MongoDB": {
+          "main": [
+            []
+          ]
+        },
+        "MongoDB1": {
+          "main": [
+            [
+              {
+                "node": "Set More Pages",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "More Pages": {
+          "main": [
+            [
+              {
+                "node": "Set Page to Scrape",
+                "type": "main",
+                "index": 0
+              }
+            ],
+            [
+              {
+                "node": "More Countries",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "File exists?": {
+          "main": [
+            [
+              {
+                "node": "Read Binary File1",
+                "type": "main",
+                "index": 0
+              }
+            ],
+            [
+              {
+                "node": "Wait",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "HTML Extract": {
+          "main": [
+            [
+              {
+                "node": "Prepare countries",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "HTTP Request": {
+          "main": [
+            [
+              {
+                "node": "HTML Extract",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "HTML Extract1": {
+          "main": [
+            [
+              {
+                "node": "Prepare Documents",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "HTTP Request1": {
+          "main": [
+            [
+              {
+                "node": "Write Binary File",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "More Countries": {
+          "main": [
+            [],
+            [
+              {
+                "node": "SplitInBatches",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Set More Pages": {
+          "main": [
+            [
+              {
+                "node": "More Pages",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "SplitInBatches": {
+          "main": [
+            [
+              {
+                "node": "uProc",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Create Directory": {
+          "main": [
+            [
+              {
+                "node": "HTTP Request",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Read Binary File": {
+          "main": [
+            [
+              {
+                "node": "File exists?",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Generate filename": {
+          "main": [
+            [
+              {
+                "node": "Read Binary File",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Prepare Documents": {
+          "main": [
+            [
+              {
+                "node": "MongoDB1",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Prepare countries": {
+          "main": [
+            [
+              {
+                "node": "SplitInBatches",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Read Binary File1": {
+          "main": [
+            [
+              {
+                "node": "HTML Extract1",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Write Binary File": {
+          "main": [
+            [
+              {
+                "node": "Read Binary File1",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Set Page to Scrape": {
+          "main": [
+            [
+              {
+                "node": "Set",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "On clicking 'execute'": {
+          "main": [
+            [
+              {
+                "node": "Create Directory",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        }
+      }
+    },
+    "original_index": 4
+  },
+  {
+    "Instruction": "Generate the n8n workflow JSON based on the user's request.",
+    "Input": "The workflow demonstrates and explains two methods for manipulating dates and times within the n8n platform: a simple method using a dedicated date/time node and a more advanced method using Luxon expressions.",
+    "Output": {
+      "nodes": [
+        {
+          "name": "On clicking 'execute'",
+          "type": "n8n-nodes-base.manualTrigger",
+          "position": [
+            1140,
+            780
+          ],
+          "parameters": {},
+          "typeVersion": 1
+        },
+        {
+          "name": "Note",
+          "type": "n8n-nodes-base.stickyNote",
+          "position": [
+            1480,
+            760
+          ],
+          "parameters": {
+            "width": 560,
+            "height": 400,
+            "content": "## 2. Advanced way: Using Expressions\nIn this `Set` node, we set dates using [Luxon expressions](https://docs.n8n.io/code-examples/expressions/luxon/) for the following formats:\n\nNow - `{{$now}}`\nCurrent time with seconds - `{{$now.toLocaleString(DateTime.TIME_WITH_SECONDS)}}`\nToday - `{{$today}}`\nTomorrow - `{{$today.plus({days: 1})}}`\nOne hour ago - `{{$now.minus({hours: 1})}}`\nWeekday name - `{{$today.weekdayLong}}`\n\n"
+          },
+          "typeVersion": 1
+        },
+        {
+          "name": "Note3",
+          "type": "n8n-nodes-base.stickyNote",
+          "position": [
+            660,
+            780
+          ],
+          "parameters": {
+            "width": 420,
+            "height": 100,
+            "content": "### Click the `Execute Workflow` button and double click on the nodes to see the input and output items."
+          },
+          "typeVersion": 1
+        },
+        {
+          "name": "12 Hours from now",
+          "type": "n8n-nodes-base.dateTime",
+          "position": [
+            1520,
+            580
+          ],
+          "parameters": {
+            "value": "={{$now}}",
+            "action": "calculate",
+            "options": {},
+            "duration": 12,
+            "timeUnit": "hours"
+          },
+          "typeVersion": 1
+        },
+        {
+          "name": "Note1",
+          "type": "n8n-nodes-base.stickyNote",
+          "position": [
+            1480,
+            400
+          ],
+          "parameters": {
+            "width": 560,
+            "height": 340,
+            "content": "## 1. Simple Way: Using the Date & Time node\nThere are two actions available within the `Date & Time` node:\n1. Calculating a date - adding/substracting minutes,hours, days, etc.\n2. Formatting a date\n\n"
+          },
+          "typeVersion": 1
+        },
+        {
+          "name": "Note4",
+          "type": "n8n-nodes-base.stickyNote",
+          "position": [
+            1980,
+            860
+          ],
+          "parameters": {
+            "width": 480,
+            "height": 320,
+            "content": "### 2.1 Working with an existing time string\nAs items pass between nodes, n8n saves dates as ISO strings. This means that in order to work with the data as a date again, we need to convert it back using `DateTime.fromISO('yyyy-mm-dd')`\n. Once doing that, we are able to apply date and time function again such as : `{{DateTime.fromISO($json[\"Now\"]).toFormat('yyyy LLL dd')}}`"
+          },
+          "typeVersion": 1
+        },
+        {
+          "name": "Set times",
+          "type": "n8n-nodes-base.set",
+          "position": [
+            1520,
+            1020
+          ],
+          "parameters": {
+            "values": {
+              "string": [
+                {
+                  "name": "Now",
+                  "value": "={{$now}}"
+                },
+                {
+                  "name": "Current time with seconds",
+                  "value": "={{$now.toLocaleString(DateTime.TIME_WITH_SECONDS)}}"
+                },
+                {
+                  "name": "Today",
+                  "value": "={{$today}}"
+                },
+                {
+                  "name": "Tomorrow",
+                  "value": "={{$today.plus({days: 1})}}"
+                },
+                {
+                  "name": "One hour from now",
+                  "value": "={{$now.minus({hours: 1})}}"
+                },
+                {
+                  "name": "Weekday",
+                  "value": "={{$today.weekdayLong}}"
+                }
+              ]
+            },
+            "options": {}
+          },
+          "typeVersion": 1
+        },
+        {
+          "name": "Edit times",
+          "type": "n8n-nodes-base.set",
+          "position": [
+            2080,
+            1020
+          ],
+          "parameters": {
+            "values": {
+              "string": [
+                {
+                  "name": "Current time",
+                  "value": "={{DateTime.fromISO($json[\"Now\"])}}"
+                },
+                {
+                  "name": "Current time formatted",
+                  "value": "={{DateTime.fromISO($json[\"Now\"]).toFormat('yyyy LLL dd')}}"
+                }
+              ]
+            },
+            "options": {},
+            "keepOnlySet": true
+          },
+          "typeVersion": 1
+        },
+        {
+          "name": "Format - MMMM DD YY",
+          "type": "n8n-nodes-base.dateTime",
+          "position": [
+            1760,
+            580
+          ],
+          "parameters": {
+            "value": "={{$now}}",
+            "options": {},
+            "toFormat": "MMMM DD YYYY"
+          },
+          "typeVersion": 1
+        }
+      ],
+      "connections": {
+        "Set times": {
+          "main": [
+            [
+              {
+                "node": "Edit times",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "12 Hours from now": {
+          "main": [
+            [
+              {
+                "node": "Format - MMMM DD YY",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "On clicking 'execute'": {
+          "main": [
+            [
+              {
+                "node": "Set times",
+                "type": "main",
+                "index": 0
+              },
+              {
+                "node": "12 Hours from now",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        }
+      }
+    },
+    "original_index": 5
+  },
+  {
+    "Instruction": "Generate the n8n workflow JSON based on the user's request.",
+    "Input": "Extract text from a PDF file.",
+    "Output": {
+      "nodes": [
+        {
+          "name": "On clicking 'execute'",
+          "type": "n8n-nodes-base.manualTrigger",
+          "position": [
+            680,
+            400
+          ],
+          "parameters": {},
+          "typeVersion": 1
+        },
+        {
+          "name": "Read Binary File",
+          "type": "n8n-nodes-base.readBinaryFile",
+          "position": [
+            880,
+            400
+          ],
+          "parameters": {
+            "filePath": "/data/pdf.pdf"
+          },
+          "typeVersion": 1
+        },
+        {
+          "name": "Read PDF",
+          "type": "n8n-nodes-base.readPDF",
+          "position": [
+            1090,
+            400
+          ],
+          "parameters": {},
+          "typeVersion": 1
+        }
+      ],
+      "connections": {
+        "Read Binary File": {
+          "main": [
+            [
+              {
+                "node": "Read PDF",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "On clicking 'execute'": {
+          "main": [
+            [
+              {
+                "node": "Read Binary File",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        }
+      }
+    },
+    "original_index": 6
+  },
+  {
+    "Instruction": "Generate the n8n workflow JSON based on the user's request.",
+    "Input": "Automatically respond to appointment requests received via email by checking calendar availability and generating a reply.",
+    "Output": {
+      "meta": {
+        "instanceId": "408f9fb9940c3cb18ffdef0e0150fe342d6e655c3a9fac21f0f644e8bedabcd9",
+        "templateCredsSetupCompleted": true
+      },
+      "nodes": [
+        {
+          "id": "eaa31cde-3017-400d-aac8-999def8cc227",
+          "name": "Sticky Note",
+          "type": "n8n-nodes-base.stickyNote",
+          "position": [
+            -340,
+            -780
+          ],
+          "parameters": {
+            "width": 617,
+            "height": 490,
+            "content": "## Check if incoming email is about appointment\nWe use LLM to check subject and body of the email and determine if it's an appointment request. "
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "b03d3f72-d1d8-49a7-bcc1-a476fd5c4ad7",
+          "name": "Sticky Note1",
+          "type": "n8n-nodes-base.stickyNote",
+          "position": [
+            400,
+            -780
+          ],
+          "parameters": {
+            "width": 796,
+            "height": 482,
+            "content": "## Get calendar availability and compose a response\nMake sure to update the Workflow ID if you are running this as 2 workflows"
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "29ce0093-c4c8-41cc-be69-334de3a1d1a2",
+          "name": "OpenAI Chat Model",
+          "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+          "position": [
+            -60,
+            -460
+          ],
+          "parameters": {
+            "model": {
+              "__rl": true,
+              "mode": "list",
+              "value": "gpt-4o-mini"
+            },
+            "options": {}
+          },
+          "credentials": {
+            "openAiApi": {
+              "id": "8gccIjcuf3gvaoEr",
+              "name": "OpenAi account"
+            }
+          },
+          "typeVersion": 1.2
+        },
+        {
+          "id": "5176f475-704b-446e-b368-ffa395bb089e",
+          "name": "OpenAI Chat Model1",
+          "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+          "position": [
+            480,
+            -460
+          ],
+          "parameters": {
+            "model": {
+              "__rl": true,
+              "mode": "list",
+              "value": "gpt-4o-mini"
+            },
+            "options": {}
+          },
+          "credentials": {
+            "openAiApi": {
+              "id": "8gccIjcuf3gvaoEr",
+              "name": "OpenAi account"
+            }
+          },
+          "typeVersion": 1.2
+        },
+        {
+          "id": "0e8a75dd-ce68-46c3-972c-32b15e04b254",
+          "name": "Send reply",
+          "type": "n8n-nodes-base.gmail",
+          "position": [
+            940,
+            -660
+          ],
+          "webhookId": "0f18d414-1b14-4d2e-9fc2-d2d302372dc6",
+          "parameters": {
+            "message": "={{ $json.output }}",
+            "options": {},
+            "messageId": "={{ $('Gmail Trigger').first().json.id }}",
+            "operation": "reply"
+          },
+          "credentials": {
+            "gmailOAuth2": {
+              "id": "Sf5Gfl9NiFTNXFWb",
+              "name": "Gmail account"
+            }
+          },
+          "typeVersion": 2.1
+        },
+        {
+          "id": "bf154384-274a-4cdd-977d-890220948a9d",
+          "name": "Gmail Trigger",
+          "type": "n8n-nodes-base.gmailTrigger",
+          "position": [
+            -280,
+            -640
+          ],
+          "parameters": {
+            "filters": {
+              "readStatus": "unread",
+              "includeSpamTrash": false
+            },
+            "pollTimes": {
+              "item": [
+                {
+                  "mode": "everyMinute"
+                }
+              ]
+            }
+          },
+          "credentials": {
+            "gmailOAuth2": {
+              "id": "Sf5Gfl9NiFTNXFWb",
+              "name": "Gmail account"
+            }
+          },
+          "typeVersion": 1.2
+        },
+        {
+          "id": "5a268b34-38ea-4e55-87ab-8a616e2aa1fa",
+          "name": "Classify appointment",
+          "type": "@n8n/n8n-nodes-langchain.textClassifier",
+          "position": [
+            -60,
+            -640
+          ],
+          "parameters": {
+            "options": {
+              "fallback": "discard"
+            },
+            "inputText": "=Please evaluate the following email to determine if it suggests scheduling a meeting or a call:\nSubject: {{ $json.Subject }}\nSnippet: {{ $json.snippet }}",
+            "categories": {
+              "categories": [
+                {
+                  "category": "is_appointment",
+                  "description": "email Is requesting an appointment"
+                }
+              ]
+            }
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "7b5a8468-09e5-4575-97cb-9175ee02b19d",
+          "name": "Agent",
+          "type": "@n8n/n8n-nodes-langchain.agent",
+          "position": [
+            500,
+            -660
+          ],
+          "parameters": {
+            "text": "=Sender: {{ $('Gmail Trigger').first().json.From }}\nSubject: {{ $('Gmail Trigger').first().json.Subject }}\nEmail Text: {{ $('Gmail Trigger').first().json.snippet }}",
+            "options": {
+              "systemMessage": "=You are an email scheduling assistant. Based on the received email, check my availability and propose an appropriate response. \nAim to get a specific time, rather than just a day. When checking my availability, make sure that there's enough time in between meetings.\nIf I'm not available, ALWAYS propose a new time based on my availability. When proposing a new time, always leave 15 minutes buffer from previous meeting.\nToday date and time is: {{ $now.toISO() }}."
+            },
+            "promptType": "define"
+          },
+          "typeVersion": 1.8
+        },
+        {
+          "id": "b61e8061-5719-4c30-97da-e306e7b79b76",
+          "name": "Google Calendar",
+          "type": "n8n-nodes-base.googleCalendarTool",
+          "position": [
+            680,
+            -460
+          ],
+          "parameters": {
+            "options": {},
+            "timeMax": "={{ $now.plus(1, 'month').toISO() }}",
+            "timeMin": "={{ $now.minus(1, 'day').toISO() }}",
+            "calendar": {
+              "__rl": true,
+              "mode": "id",
+              "value": "your_email@gmail.com"
+            },
+            "operation": "getAll",
+            "returnAll": true
+          },
+          "credentials": {
+            "googleCalendarOAuth2Api": {
+              "id": "kWMxmDbMDDJoYFVK",
+              "name": "Google Calendar account"
+            }
+          },
+          "typeVersion": 1.3
+        },
+        {
+          "id": "47e07b6c-d432-4111-b33e-56d6c305c40c",
+          "name": "Mark as read",
+          "type": "n8n-nodes-base.gmail",
+          "position": [
+            940,
+            -480
+          ],
+          "webhookId": "7e2d851b-c9f3-471c-875d-0da7c2c3b561",
+          "parameters": {
+            "messageId": "={{ $('Gmail Trigger').first().json.id }}",
+            "operation": "markAsRead"
+          },
+          "credentials": {
+            "gmailOAuth2": {
+              "id": "Sf5Gfl9NiFTNXFWb",
+              "name": "Gmail account"
+            }
+          },
+          "typeVersion": 2.1
+        }
+      ],
+      "pinData": {},
+      "connections": {
+        "Agent": {
+          "main": [
+            [
+              {
+                "node": "Send reply",
+                "type": "main",
+                "index": 0
+              },
+              {
+                "node": "Mark as read",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Gmail Trigger": {
+          "main": [
+            [
+              {
+                "node": "Classify appointment",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Google Calendar": {
+          "ai_tool": [
+            [
+              {
+                "node": "Agent",
+                "type": "ai_tool",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "OpenAI Chat Model": {
+          "ai_languageModel": [
+            [
+              {
+                "node": "Classify appointment",
+                "type": "ai_languageModel",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "OpenAI Chat Model1": {
+          "ai_languageModel": [
+            [
+              {
+                "node": "Agent",
+                "type": "ai_languageModel",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Classify appointment": {
+          "main": [
+            [
+              {
+                "node": "Agent",
+                "type": "main",
+                "index": 0
+              }
+            ],
+            []
+          ]
+        }
+      }
+    },
+    "original_index": 7
+  },
+  {
+    "Instruction": "Generate the n8n workflow JSON based on the user's request.",
+    "Input": "This workflow backs up n8n workflows to a GitHub repository on a schedule, handling new, modified, and unchanged files.",
+    "Output": {
+      "nodes": [
+        {
+          "id": "421824c2-59a2-441b-aacc-7dadf2ec153b",
+          "name": "On clicking 'execute'",
+          "type": "n8n-nodes-base.manualTrigger",
+          "position": [
+            900,
+            1180
+          ],
+          "parameters": {},
+          "typeVersion": 1
+        },
+        {
+          "id": "c6024a57-1957-4714-84e3-8d326c83cd89",
+          "name": "Sticky Note",
+          "type": "n8n-nodes-base.stickyNote",
+          "position": [
+            420,
+            1560
+          ],
+          "parameters": {
+            "color": 6,
+            "width": 1910.7813046051347,
+            "height": 731.7039821513649,
+            "content": "## Subworkflow"
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "07691901-a8d2-4891-860b-1d672361021b",
+          "name": "Execute Workflow Trigger",
+          "type": "n8n-nodes-base.executeWorkflowTrigger",
+          "position": [
+            480,
+            1940
+          ],
+          "parameters": {},
+          "typeVersion": 1
+        },
+        {
+          "id": "2b1dd138-7872-42ea-9882-8750ef4cf227",
+          "name": "n8n",
+          "type": "n8n-nodes-base.n8n",
+          "position": [
+            1300,
+            1280
+          ],
+          "parameters": {
+            "filters": {},
+            "requestOptions": {}
+          },
+          "credentials": {
+            "n8nApi": {
+              "id": "t2YEgbUMXHjsykeF",
+              "name": "admin"
+            }
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "96c0c6a7-2a11-441d-8177-e0a18030daf9",
+          "name": "Return",
+          "type": "n8n-nodes-base.set",
+          "position": [
+            2140,
+            1760
+          ],
+          "parameters": {
+            "options": {},
+            "assignments": {
+              "assignments": [
+                {
+                  "id": "8d513345-6484-431f-afb7-7cf045c90f4f",
+                  "name": "Done",
+                  "type": "boolean",
+                  "value": true
+                }
+              ]
+            }
+          },
+          "typeVersion": 3.3
+        },
+        {
+          "id": "6715d1ff-a1f0-4e1a-b96e-f680d1495047",
+          "name": "Get File",
+          "type": "n8n-nodes-base.httpRequest",
+          "position": [
+            1100,
+            1640
+          ],
+          "parameters": {
+            "url": "={{ $json.download_url }}",
+            "options": {}
+          },
+          "typeVersion": 4.2
+        },
+        {
+          "id": "443b18e8-c05b-444f-b323-dea0b3041939",
+          "name": "If file too large",
+          "type": "n8n-nodes-base.if",
+          "position": [
+            860,
+            1660
+          ],
+          "parameters": {
+            "options": {},
+            "conditions": {
+              "options": {
+                "leftValue": "",
+                "caseSensitive": true,
+                "typeValidation": "strict"
+              },
+              "combinator": "and",
+              "conditions": [
+                {
+                  "id": "45ce825e-9fa6-430c-8931-9aaf22c42585",
+                  "operator": {
+                    "type": "string",
+                    "operation": "empty",
+                    "singleValue": true
+                  },
+                  "leftValue": "={{ $json.content }}",
+                  "rightValue": ""
+                },
+                {
+                  "id": "9619a55f-7fb1-4f24-b1a7-7aeb82365806",
+                  "operator": {
+                    "type": "string",
+                    "operation": "notExists",
+                    "singleValue": true
+                  },
+                  "leftValue": "={{ $json.error }}",
+                  "rightValue": ""
+                }
+              ]
+            }
+          },
+          "typeVersion": 2
+        },
+        {
+          "id": "e460a2cd-f7af-4551-8ea2-84d9b9e5cb7f",
+          "name": "Merge Items",
+          "type": "n8n-nodes-base.merge",
+          "position": [
+            860,
+            1920
+          ],
+          "parameters": {},
+          "typeVersion": 2
+        },
+        {
+          "id": "f795180a-66aa-4a86-acb0-96cf8c487db0",
+          "name": "isDiffOrNew",
+          "type": "n8n-nodes-base.code",
+          "position": [
+            1060,
+            1920
+          ],
+          "parameters": {
+            "jsCode": "const orderJsonKeys = (jsonObj) => {\n  const ordered = {};\n  Object.keys(jsonObj).sort().forEach(key => {\n    ordered[key] = jsonObj[key];\n  });\n  return ordered;\n}\n\n// Check if file returned with content\nif (Object.keys($input.all()[0].json).includes(\"content\")) {\n  // Decode base64 content and parse JSON\n  const origWorkflow = JSON.parse(Buffer.from($input.all()[0].json.content, 'base64').toString());\n  const n8nWorkflow = $input.all()[1].json;\n  \n  // Order JSON objects\n  const orderedOriginal = orderJsonKeys(origWorkflow);\n  const orderedActual = orderJsonKeys(n8nWorkflow);\n\n  // Determine difference\n  if (JSON.stringify(orderedOriginal) === JSON.stringify(orderedActual)) {\n    $input.all()[0].json.github_status = \"same\";\n  } else {\n    $input.all()[0].json.github_status = \"different\";\n    $input.all()[0].json.n8n_data_stringy = JSON.stringify(orderedActual, null, 2);\n  }\n  $input.all()[0].json.content_decoded = orderedOriginal;\n// No file returned / new workflow\n} else if (Object.keys($input.all()[0].json).includes(\"data\")) {\n  const origWorkflow = JSON.parse($input.all()[0].json.data);\n  const n8nWorkflow = $input.all()[1].json;\n  \n  // Order JSON objects\n  const orderedOriginal = orderJsonKeys(origWorkflow);\n  const orderedActual = orderJsonKeys(n8nWorkflow);\n\n  // Determine difference\n  if (JSON.stringify(orderedOriginal) === JSON.stringify(orderedActual)) {\n    $input.all()[0].json.github_status = \"same\";\n  } else {\n    $input.all()[0].json.github_status = \"different\";\n    $input.all()[0].json.n8n_data_stringy = JSON.stringify(orderedActual, null, 2);\n  }\n  $input.all()[0].json.content_decoded = orderedOriginal;\n\n} else {\n  // Order JSON object\n  const n8nWorkflow = $input.all()[1].json;\n  const orderedActual = orderJsonKeys(n8nWorkflow);\n  \n  // Proper formatting\n  $input.all()[0].json.github_status = \"new\";\n  $input.all()[0].json.n8n_data_stringy = JSON.stringify(orderedActual, null, 2);\n}\n\n// Return items\nreturn $input.all();\n"
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "30e7d6fc-327e-4693-95ce-376a3b1f145c",
+          "name": "Check Status",
+          "type": "n8n-nodes-base.switch",
+          "position": [
+            1460,
+            1920
+          ],
+          "parameters": {
+            "rules": {
+              "rules": [
+                {
+                  "value2": "same"
+                },
+                {
+                  "output": 1,
+                  "value2": "different"
+                },
+                {
+                  "output": 2,
+                  "value2": "new"
+                }
+              ]
+            },
+            "value1": "={{$json.github_status}}",
+            "dataType": "string"
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "36f12309-c7fe-446f-9571-bd1005c18ed8",
+          "name": "Same file - Do nothing",
+          "type": "n8n-nodes-base.noOp",
+          "position": [
+            1680,
+            1760
+          ],
+          "parameters": {},
+          "typeVersion": 1
+        },
+        {
+          "id": "45f0eaa7-259b-4908-b567-af2b3b5abb6d",
+          "name": "File is different",
+          "type": "n8n-nodes-base.noOp",
+          "position": [
+            1680,
+            1920
+          ],
+          "parameters": {},
+          "typeVersion": 1
+        },
+        {
+          "id": "d16ec06b-7a3f-486e-8328-935ed3b4d565",
+          "name": "File is new",
+          "type": "n8n-nodes-base.noOp",
+          "position": [
+            1680,
+            2120
+          ],
+          "parameters": {},
+          "typeVersion": 1
+        },
+        {
+          "id": "cdc7f306-b7d2-4de1-8e44-0bd8d49a679f",
+          "name": "Create new file",
+          "type": "n8n-nodes-base.github",
+          "position": [
+            1900,
+            2120
+          ],
+          "parameters": {
+            "owner": {
+              "__rl": true,
+              "mode": "",
+              "value": "={{ $('Config').first().item.repo_owner }}"
+            },
+            "filePath": "={{ $('Config').first().item.repo_path }}{{ $json.subPath }}{{$('Execute Workflow Trigger').first().json.id}}.json",
+            "resource": "file",
+            "repository": {
+              "__rl": true,
+              "mode": "",
+              "value": "={{ $('Config').first().item.repo_name }}"
+            },
+            "fileContent": "={{$('isDiffOrNew').item.json[\"n8n_data_stringy\"]}}",
+            "commitMessage": "={{$('Execute Workflow Trigger').first().json.name}} ({{$json.github_status}})"
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "9785333a-4a86-448d-afc2-58b0aa50ea96",
+          "name": "Edit existing file",
+          "type": "n8n-nodes-base.github",
+          "position": [
+            1900,
+            1920
+          ],
+          "parameters": {
+            "owner": {
+              "__rl": true,
+              "mode": "",
+              "value": "={{ $('Config').first().item.repo_owner }}"
+            },
+            "filePath": "={{ $('Config').first().item.repo_path }}{{ $json.subPath }}{{$('Execute Workflow Trigger').first().json.id}}.json",
+            "resource": "file",
+            "operation": "edit",
+            "repository": {
+              "__rl": true,
+              "mode": "",
+              "value": "={{ $('Config').first().item.repo_name }}"
+            },
+            "fileContent": "={{$('isDiffOrNew').item.json[\"n8n_data_stringy\"]}}",
+            "commitMessage": "={{$('Execute Workflow Trigger').first().json.name}} ({{$json.github_status}})"
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "806db72c-c9f6-461d-be1a-1e6867a25382",
+          "name": "Loop Over Items",
+          "type": "n8n-nodes-base.splitInBatches",
+          "position": [
+            1500,
+            1280
+          ],
+          "parameters": {
+            "options": {}
+          },
+          "typeVersion": 3
+        },
+        {
+          "id": "e5c433e4-bf56-4a0a-906c-7d74f6fe7287",
+          "name": "Schedule Trigger",
+          "type": "n8n-nodes-base.scheduleTrigger",
+          "position": [
+            900,
+            1380
+          ],
+          "parameters": {
+            "rule": {
+              "interval": [
+                {
+                  "triggerAtHour": 1,
+                  "triggerAtMinute": 33
+                }
+              ]
+            }
+          },
+          "typeVersion": 1.2
+        },
+        {
+          "id": "f6b566cb-0a15-4792-ba27-d6cd2a6c9453",
+          "name": "Create sub path",
+          "type": "n8n-nodes-base.set",
+          "position": [
+            1260,
+            1920
+          ],
+          "parameters": {
+            "options": {},
+            "assignments": {
+              "assignments": [
+                {
+                  "id": "dae43d3b-56e5-4098-b602-862ebf5cd073",
+                  "name": "subPath",
+                  "type": "string",
+                  "value": "={{ $('Execute Workflow Trigger').first().json.createdAt.split('-')[0] }}/{{ $('Execute Workflow Trigger').first().json.createdAt.split('-')[1] }}/"
+                }
+              ]
+            },
+            "includeOtherFields": true
+          },
+          "typeVersion": 3.3
+        },
+        {
+          "id": "9e2412f6-df25-4c12-8faf-0200558b537c",
+          "name": "Sticky Note1",
+          "type": "n8n-nodes-base.stickyNote",
+          "position": [
+            420,
+            1100
+          ],
+          "parameters": {
+            "color": 4,
+            "width": 385,
+            "height": 417,
+            "content": "## Backup to GitHub \nThis workflow will backup all instance workflows to GitHub every 24 hours.\n\nThe files are saved into folders using `YYYY/MM/` for the directory path and `ID.json` for the filename.\n\nThe Repo Owner, Repo Name and Main folder are set using the **Variables** feature but can be replaced with the `Config` node in the subworkflow. \n\nThe workflow runs calls itself to help reduce memory usage, Once the workflow has completed it will send an optional notification to Slack.\n\n### Time to Run\nTested with 1423 workflows on `1.44.1` it took under 30 minutes for the first run and under 12 minutes once the initial run is complete."
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "00fdb977-4f3e-49f6-81c3-bc7f9520914f",
+          "name": "Sticky Note2",
+          "type": "n8n-nodes-base.stickyNote",
+          "position": [
+            860,
+            1100
+          ],
+          "parameters": {
+            "color": 7,
+            "width": 1272.6408145680155,
+            "height": 416.1856906618075,
+            "content": "## Main workflow loop"
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "0c00a374-566a-49c7-80de-66a991c4bf69",
+          "name": "Starting Message",
+          "type": "n8n-nodes-base.slack",
+          "position": [
+            1140,
+            1280
+          ],
+          "webhookId": "c02eb407-5547-4aa0-9ebf-46dab67b63b6",
+          "parameters": {
+            "text": "=:information_source:  Starting Workflow Backup [{{ $execution.id }}]",
+            "select": "channel",
+            "channelId": {
+              "__rl": true,
+              "mode": "name",
+              "value": "#notifications"
+            },
+            "otherOptions": {
+              "includeLinkToWorkflow": false
+            }
+          },
+          "typeVersion": 2.2
+        },
+        {
+          "id": "eb7d15be-7f5d-4e39-837b-06d740685af3",
+          "name": "Execute Workflow",
+          "type": "n8n-nodes-base.executeWorkflow",
+          "onError": "continueErrorOutput",
+          "position": [
+            1720,
+            1300
+          ],
+          "parameters": {
+            "mode": "each",
+            "options": {},
+            "workflowId": "={{ $workflow.id }}"
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "c831a0eb-95e1-46b3-bbf8-5d5bd928ca0a",
+          "name": "Completed Notification",
+          "type": "n8n-nodes-base.slack",
+          "position": [
+            1720,
+            1120
+          ],
+          "webhookId": "a0c6e8c8-5d71-40fa-b02b-63a7ed5726c4",
+          "parameters": {
+            "text": "=\u2705 Backup has completed - {{ $('n8n').all().length }} workflows have been processed.",
+            "select": "channel",
+            "channelId": {
+              "__rl": true,
+              "mode": "name",
+              "value": "#notifications"
+            },
+            "otherOptions": {}
+          },
+          "executeOnce": true,
+          "typeVersion": 2.2
+        },
+        {
+          "id": "00864cb8-c8e4-4324-be1b-7d093e1bc3bf",
+          "name": "Failed Flows",
+          "type": "n8n-nodes-base.slack",
+          "position": [
+            1920,
+            1320
+          ],
+          "webhookId": "2a092edb-de12-490f-931b-34d70e7d7696",
+          "parameters": {
+            "text": "=:x: Failed to backup {{ $('Loop Over Items').item.json.id }}",
+            "select": "channel",
+            "channelId": {
+              "__rl": true,
+              "mode": "name",
+              "value": "#notifications"
+            },
+            "otherOptions": {
+              "includeLinkToWorkflow": false
+            }
+          },
+          "typeVersion": 2.2
+        },
+        {
+          "id": "e4d70af5-5c21-4340-8054-7ba0203f3ee1",
+          "name": "Get file data",
+          "type": "n8n-nodes-base.github",
+          "position": [
+            660,
+            1660
+          ],
+          "parameters": {
+            "owner": {
+              "__rl": true,
+              "mode": "",
+              "value": "={{ $('Config').first().item.repo_owner }}"
+            },
+            "filePath": "={{ $('Config').first().item.repo_path }}{{ $('Execute Workflow Trigger').first().json.createdAt.split('-')[0] }}/{{ $('Execute Workflow Trigger').first().json.createdAt.split('-')[1] }}/{{$json.id}}.json",
+            "resource": "file",
+            "operation": "get",
+            "repository": {
+              "__rl": true,
+              "mode": "",
+              "value": "={{ $('Config').first().item.repo_name }}"
+            },
+            "asBinaryProperty": false,
+            "additionalParameters": {}
+          },
+          "typeVersion": 1,
+          "continueOnFail": true,
+          "alwaysOutputData": true
+        },
+        {
+          "id": "42ad4762-26fb-4686-9016-729e95c95324",
+          "name": "Config",
+          "type": "n8n-nodes-base.set",
+          "position": [
+            660,
+            1940
+          ],
+          "parameters": {
+            "options": {},
+            "assignments": {
+              "assignments": [
+                {
+                  "id": "8f6d1741-772f-462a-811f-4c334185e4f0",
+                  "name": "repo_owner",
+                  "type": "string",
+                  "value": "={{ $vars.repo_owner }}"
+                },
+                {
+                  "id": "8cac215c-4fd7-422f-9fd2-6b2d1e5e0383",
+                  "name": "repo_name",
+                  "type": "string",
+                  "value": "={{ $vars.repo_name }}"
+                },
+                {
+                  "id": "eee305e9-4164-462a-86bd-80f0d58a31ae",
+                  "name": "repo_path",
+                  "type": "string",
+                  "value": "={{ $vars.repo_path }}"
+                }
+              ]
+            },
+            "includeOtherFields": true
+          },
+          "typeVersion": 3.4
+        }
+      ],
+      "pinData": {},
+      "connections": {
+        "n8n": {
+          "main": [
+            [
+              {
+                "node": "Loop Over Items",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Config": {
+          "main": [
+            [
+              {
+                "node": "Get file data",
+                "type": "main",
+                "index": 0
+              },
+              {
+                "node": "Merge Items",
+                "type": "main",
+                "index": 1
+              }
+            ]
+          ]
+        },
+        "Get File": {
+          "main": [
+            [
+              {
+                "node": "Merge Items",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "File is new": {
+          "main": [
+            [
+              {
+                "node": "Create new file",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Merge Items": {
+          "main": [
+            [
+              {
+                "node": "isDiffOrNew",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "isDiffOrNew": {
+          "main": [
+            [
+              {
+                "node": "Create sub path",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Check Status": {
+          "main": [
+            [
+              {
+                "node": "Same file - Do nothing",
+                "type": "main",
+                "index": 0
+              }
+            ],
+            [
+              {
+                "node": "File is different",
+                "type": "main",
+                "index": 0
+              }
+            ],
+            [
+              {
+                "node": "File is new",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Failed Flows": {
+          "main": [
+            [
+              {
+                "node": "Loop Over Items",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Get file data": {
+          "main": [
+            [
+              {
+                "node": "If file too large",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Create new file": {
+          "main": [
+            [
+              {
+                "node": "Return",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Create sub path": {
+          "main": [
+            [
+              {
+                "node": "Check Status",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Loop Over Items": {
+          "main": [
+            [
+              {
+                "node": "Completed Notification",
+                "type": "main",
+                "index": 0
+              }
+            ],
+            [
+              {
+                "node": "Execute Workflow",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Execute Workflow": {
+          "main": [
+            [
+              {
+                "node": "Loop Over Items",
+                "type": "main",
+                "index": 0
+              }
+            ],
+            [
+              {
+                "node": "Failed Flows",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Schedule Trigger": {
+          "main": [
+            [
+              {
+                "node": "Starting Message",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Starting Message": {
+          "main": [
+            [
+              {
+                "node": "n8n",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "File is different": {
+          "main": [
+            [
+              {
+                "node": "Edit existing file",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "If file too large": {
+          "main": [
+            [
+              {
+                "node": "Get File",
+                "type": "main",
+                "index": 0
+              }
+            ],
+            [
+              {
+                "node": "Merge Items",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Edit existing file": {
+          "main": [
+            [
+              {
+                "node": "Return",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "On clicking 'execute'": {
+          "main": [
+            [
+              {
+                "node": "Starting Message",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Same file - Do nothing": {
+          "main": [
+            [
+              {
+                "node": "Return",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "Execute Workflow Trigger": {
+          "main": [
+            [
+              {
+                "node": "Config",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        }
+      }
+    },
+    "original_index": 8
+  },
+  {
+    "Instruction": "Generate the n8n workflow JSON based on the user's request.",
+    "Input": "This workflow demonstrates different data merging techniques (like joins and unions) using sample data sets of ingredients, recipes, and bands.",
+    "Output": {
+      "meta": {
+        "instanceId": "8c8c5237b8e37b006a7adce87f4369350c58e41f3ca9de16196d3197f69eabcd"
+      },
+      "nodes": [
+        {
+          "id": "9971f7ab-ecc3-468b-8eb9-b58491b660bd",
+          "name": "On clicking 'execute'",
+          "type": "n8n-nodes-base.manualTrigger",
+          "position": [
+            1040,
+            360
+          ],
+          "parameters": {},
+          "typeVersion": 1
+        },
+        {
+          "id": "bb212963-9b6f-434c-9777-3360fb456d4b",
+          "name": "Note",
+          "type": "n8n-nodes-base.stickyNote",
+          "position": [
+            1320,
+            600
+          ],
+          "parameters": {
+            "width": 1020,
+            "height": 360,
+            "content": "# 3. Add items from B below items from A\n"
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "cc9461f1-1016-4ef5-bc10-525942c45047",
+          "name": "Note1",
+          "type": "n8n-nodes-base.stickyNote",
+          "position": [
+            1320,
+            -200
+          ],
+          "parameters": {
+            "width": 1020,
+            "height": 380,
+            "content": "# 1. Keep items from A if there's a match in B\n"
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "09a68f64-5b2d-43a8-acff-7c26817cc025",
+          "name": "Note2",
+          "type": "n8n-nodes-base.stickyNote",
+          "position": [
+            1320,
+            200
+          ],
+          "parameters": {
+            "width": 1020,
+            "height": 380,
+            "content": "# 2. Enrich items from A with matching data from B"
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "bcf0c7df-fb64-4ef8-9d75-300ff9b55f40",
+          "name": "Note4",
+          "type": "n8n-nodes-base.stickyNote",
+          "position": [
+            175,
+            235
+          ],
+          "parameters": {
+            "width": 740,
+            "height": 460,
+            "content": "# Aggregating data with the Merge node\n\n## The merge node is one of the most useful nodes in n8n. In this workflow we show how to merge data from two different sources (similar to SQL joins).\n\n## The most-used operations of the merge node are presented here. For more info, browse the [merge node docs](https://docs.n8n.io/integrations/core-nodes/n8n-nodes-base.merge/)\n\n## Click the `Execute Workflow` button and double click on the nodes to see the input and output items."
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "b418defd-f58f-4f53-9bac-b1e6611151dc",
+          "name": "Note6",
+          "type": "n8n-nodes-base.stickyNote",
+          "position": [
+            1855,
+            335
+          ],
+          "parameters": {
+            "width": 480,
+            "content": "## Adds the quantity needed to each ingredient in the recipe\n\n## Similar to SQL Left join\n\n"
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "017b5902-865e-4481-98d2-0a969cc09482",
+          "name": "Note8",
+          "type": "n8n-nodes-base.stickyNote",
+          "position": [
+            1855,
+            -65
+          ],
+          "parameters": {
+            "width": 480,
+            "content": "## This will keep only the ingredients needed that are also in stock\n\n## Similar to SQL Inner join"
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "e2b46667-da41-4448-a74d-3aa095f72619",
+          "name": "Note9",
+          "type": "n8n-nodes-base.stickyNote",
+          "position": [
+            1855,
+            695
+          ],
+          "parameters": {
+            "width": 480,
+            "height": 200,
+            "content": "## This will create a super band by merging Queen and Led Zeppelin\n\n## Similar to SQL Union All \n(more flexible as not requires all fields to be the same)"
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "9726c9cc-cab1-44f8-8c62-2b80899af4aa",
+          "name": "Ingredients in stock from recipe",
+          "type": "n8n-nodes-base.merge",
+          "position": [
+            1600,
+            -20
+          ],
+          "parameters": {
+            "mode": "combine",
+            "options": {},
+            "mergeByFields": {
+              "values": [
+                {
+                  "field1": "Name",
+                  "field2": "Name"
+                }
+              ]
+            }
+          },
+          "typeVersion": 2
+        },
+        {
+          "id": "42367b1e-8a5d-4b0c-bfd3-8bb3f1b63df9",
+          "name": "Super Band",
+          "type": "n8n-nodes-base.merge",
+          "position": [
+            1620,
+            760
+          ],
+          "parameters": {},
+          "typeVersion": 2
+        },
+        {
+          "id": "b4a756d8-a729-4add-aafa-9868738a6790",
+          "name": "A. Ingredients Needed",
+          "type": "n8n-nodes-base.code",
+          "position": [
+            1360,
+            -100
+          ],
+          "parameters": {
+            "jsCode": " return [\n  {\n    \"Name\": \"Flour\",\n  },\n  {\n    \"Name\": \"Eggs\",\n  },\n  {\n    \"Name\": \"Milk\",\n  },\n  {\n    \"Name\": \"Lemon\",\n  },\n  {\n    \"Name\": \"Sugar\",\n  },\n];\n"
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "eb69abdc-cb89-43c5-bcd6-5f1f6383b391",
+          "name": "B. Ingredients in stock",
+          "type": "n8n-nodes-base.code",
+          "position": [
+            1360,
+            40
+          ],
+          "parameters": {
+            "jsCode": " return [\n  {\n    \"Name\": \"Eggs\",\n  },\n  {\n    \"Name\": \"Lemon\",\n  },\n  {\n    \"Name\": \"Sugar\",\n  },\n];\n"
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "b01228b8-c860-4725-a0e1-00b4c11218cc",
+          "name": "Merge recipe",
+          "type": "n8n-nodes-base.merge",
+          "position": [
+            1620,
+            380
+          ],
+          "parameters": {
+            "mode": "combine",
+            "options": {},
+            "joinMode": "enrichInput1",
+            "mergeByFields": {
+              "values": [
+                {
+                  "field1": "Name",
+                  "field2": "Name"
+                }
+              ]
+            }
+          },
+          "typeVersion": 2
+        },
+        {
+          "id": "fdb8a9cb-8a85-4a9a-bd2f-c9711178333f",
+          "name": "A. Ingredients",
+          "type": "n8n-nodes-base.code",
+          "position": [
+            1360,
+            300
+          ],
+          "parameters": {
+            "jsCode": " return [\n  {\n    \"Name\": \"Flour\",\n  },\n  {\n    \"Name\": \"Eggs\",\n  },\n  {\n    \"Name\": \"Milk\",\n  },\n  {\n    \"Name\": \"Lemon\",\n  },\n  {\n    \"Name\": \"Sugar\",\n  },\n];\n"
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "2ca385e5-6833-49fa-b052-abc8583b4a7a",
+          "name": "B. Recipe quantities",
+          "type": "n8n-nodes-base.code",
+          "position": [
+            1360,
+            440
+          ],
+          "parameters": {
+            "jsCode": " return [\n  {\n    \"Name\": \"Flour\",\n    \"Quantity\": \"100g\",\n  },\n  {\n    \"Name\": \"Eggs\",\n    \"Quantity\": 2,\n  },\n  {\n    \"Name\": \"Salt\",\n    \"Quantity\": \"50g\"\n  },\n  {\n    \"Name\": \"Lemon\",\n    \"Quantity\": 1,\n  },\n  {\n    \"Name\": \"Sugar\",\n    \"Quantity\": \"6tbsp\",\n  },\n];\n"
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "8e4c7da8-3700-4b1f-b937-739debf7aba4",
+          "name": "A. Queen",
+          "type": "n8n-nodes-base.code",
+          "position": [
+            1360,
+            680
+          ],
+          "parameters": {
+            "jsCode": " return [\n{\n\"FirstName\": \"John\",\n\"LastName\": \"Deacon\",\n\"Instrument\": \"Drums\",\n},\n{\n\"FirstName\": \"Freddy\",\n\"LastName\": \"Mercury\",\n\"Instrument\": \"Vocals and Piano\",\n\"Superpower\": \"Crowd control\"\n},\n{\n\"FirstName\": \"Brian\",\n\"LastName\": \"May\",\n\"Instrument\": \"Guitar\",\n},\n{\n\"FirstName\": \"Roger\",\n\"LastName\": \"Taylor\",\n\"Instrument\": \"Bass\",\n}\n];\n"
+          },
+          "typeVersion": 1
+        },
+        {
+          "id": "260c7a0a-43ba-46aa-bfa8-cbbb66aca493",
+          "name": "B. Led Zeppelin",
+          "type": "n8n-nodes-base.code",
+          "position": [
+            1360,
+            820
+          ],
+          "parameters": {
+            "jsCode": " return [\n{\n\"FirstName\": \"Jimmy\",\n\"LastName\": \"Page\",\n\"Instrument\": \"Guitar\"\n},\n{\n\"FirstName\": \"Robert\",\n\"LastName\": \"Plant\",\n\"Instrument\": \"Vocals\",\n},\n{\n\"FirstName\": \"John\",\n\"LastName\": \"Bonham\",\n\"Instrument\": \"Drums\",\n},\n{\n\"FirstName\": \"John\",\n\"LastName\": \"Paul Jones\",\n\"Instrument\": \"Bass\",\n\"Second Instrument\": \"Keyboard\",\n}\n];\n"
+          },
+          "typeVersion": 1
+        }
+      ],
+      "connections": {
+        "A. Queen": {
+          "main": [
+            [
+              {
+                "node": "Super Band",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "A. Ingredients": {
+          "main": [
+            [
+              {
+                "node": "Merge recipe",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "B. Led Zeppelin": {
+          "main": [
+            [
+              {
+                "node": "Super Band",
+                "type": "main",
+                "index": 1
+              }
+            ]
+          ]
+        },
+        "B. Recipe quantities": {
+          "main": [
+            [
+              {
+                "node": "Merge recipe",
+                "type": "main",
+                "index": 1
+              }
+            ]
+          ]
+        },
+        "A. Ingredients Needed": {
+          "main": [
+            [
+              {
+                "node": "Ingredients in stock from recipe",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "On clicking 'execute'": {
+          "main": [
+            [
+              {
+                "node": "A. Ingredients Needed",
+                "type": "main",
+                "index": 0
+              },
+              {
+                "node": "B. Ingredients in stock",
+                "type": "main",
+                "index": 0
+              },
+              {
+                "node": "A. Ingredients",
+                "type": "main",
+                "index": 0
+              },
+              {
+                "node": "B. Recipe quantities",
+                "type": "main",
+                "index": 0
+              },
+              {
+                "node": "A. Queen",
+                "type": "main",
+                "index": 0
+              },
+              {
+                "node": "B. Led Zeppelin",
+                "type": "main",
+                "index": 0
+              }
+            ]
+          ]
+        },
+        "B. Ingredients in stock": {
+          "main": [
+            [
+              {
+                "node": "Ingredients in stock from recipe",
+                "type": "main",
+                "index": 1
+              }
+            ]
+          ]
+        }
+      }
+    },
+    "original_index": 9
+  }
+]
